@@ -99,5 +99,6 @@ class BlogAdmin(admin.ModelAdmin):
     # readonly_fields = ('image',)
 
 admin.site.register(Blog, BlogAdmin)
-admin.site.register(AnalyticsScript)
-admin.site.register(Webmaster)
+admin.site.register(BG_Remove)
+admin.site.register(BG_Add_Remove)
+admin.site.register(BG_Add_color)
