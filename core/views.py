@@ -14,7 +14,12 @@ class BackgroundApiView(generics.GenericAPIView):
         serializer = BackgroundSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
-            return Response(serializer.data, status=200)
+            
+            bg_new = BG_Remove.objects.filter(pk=serializer.data['id']).values_list('webp_image_url', flat=True)[0]
+            
+            new_img = {'image_this': bg_new}
+            serializer_data_with_extra = {**serializer.data, **new_img}
+            return Response(serializer_data_with_extra, status=200)
         else:
             return Response({"errors": serializer.errors}, status=400)
         

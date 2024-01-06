@@ -11,6 +11,10 @@ from ckeditor.fields import RichTextField
 from ckeditor_uploader.fields import RichTextUploadingField
 from django.utils.text import slugify
 from bs4 import BeautifulSoup
+import uuid
+from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import InMemoryUploadedFile
+
 
 # Specify the parameters
 discard_threshold = 1e-05
@@ -26,6 +30,8 @@ config = {
 class BG_Remove(models.Model):
     image = models.ImageField(blank=True, upload_to='images')
     bg_image = models.ImageField(blank=True, upload_to='bg_images/')
+    webp_image_url = models.URLField(blank=True, null=True)
+    webp_bg_image_url = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return str(self.id)
@@ -49,6 +55,61 @@ class BG_Remove(models.Model):
         name, _ = filename.split(".")
         self.bg_image.save(f"bgrm_{name}.png", ContentFile(val), save=False)
         super().save(*args, **kwargs)
+        if self.image and not self.webp_image_url:
+            webp_image = self.convert_to_webp(self.image)
+            self.webp_image_url = self.save_webp_image(webp_image)
+            super().save(update_fields=['webp_image_url'])
+        if self.bg_image and  not self.webp_bg_image_url:
+            print("Im here", self.bg_image)
+            webp_image = self.convert_to_bg_webp(self.bg_image)
+            self.webp_bg_image_url = self.save_webp_bg_image(webp_image)
+            super().save(update_fields=['webp_bg_image_url'])
+        
+    def convert_to_webp(self, image):
+        img = Image.open(image)
+        webp_image = BytesIO()
+        img.save(webp_image, 'WEBP')
+        return webp_image
+
+    def save_webp_image(self, webp_image):
+        webp_file = InMemoryUploadedFile(
+            webp_image,  # file
+            None,  # field_name
+            f'{self.image.name.split(".")[0]}{uuid.uuid4()}_webp.webp',  # file name
+            'image/webp',  # content_type
+            webp_image.tell(),  # size
+            None  # content_type_extra
+        )
+
+        # Save the webp_file to the storage backend
+        webp_path = default_storage.save(webp_file.name, webp_file)
+
+        # Set the webp_image_url to the URL of the saved webp_file
+        self.webp_image_url = default_storage.url(webp_path)
+        return self.webp_image_url
+    
+    def convert_to_bg_webp(self, image):
+        img = Image.open(image)
+        webp_image = BytesIO()
+        img.save(webp_image, 'WEBP')
+        return webp_image
+
+    def save_webp_bg_image(self, webp_image):
+        webp_file = InMemoryUploadedFile(
+            webp_image,  # file
+            None,  # field_name
+            f'{self.image.name.split(".")[0]}_bg_webp.webp',  # file name
+            'image/webp',  # content_type
+            webp_image.tell(),  # size
+            None  # content_type_extra
+        )
+
+        # Save the webp_file to the storage backend
+        webp_path = default_storage.save(webp_file.name, webp_file)
+
+        # Set the webp_image_url to the URL of the saved webp_file
+        self.webp_image_url = default_storage.url(webp_path)
+        return self.webp_image_url
 
 
 class BG_Add_Remove(models.Model):
@@ -56,6 +117,7 @@ class BG_Add_Remove(models.Model):
     bgimage = models.URLField(null=True, blank=True)
     back_image = models.ImageField(blank=True, upload_to='background_images')
     bg_image = models.ImageField(blank=True, upload_to='bg_images/')
+    webp_bg_image_url = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return str(self.id)
@@ -86,7 +148,12 @@ class BG_Add_Remove(models.Model):
             filename = os.path.basename("Newimage.png")
             name, _ = filename.split(".")
             self.bg_image.save(f"bgrm_{name}.png", ContentFile(val), save=False)
-            super().save(*args, **kwargs)        
+            super().save(*args, **kwargs)       
+            # if not self.webp_bg_image_url:
+            #     print("Im here", self.bg_image)
+            #     webp_image = self.convert_to_webp(self.bg_image)
+            #     self.webp_bg_image_url = self.save_webp_image(webp_image)
+            #     super().save(update_fields=['webp_bg_image_url']) 
             
         except:
             background = Image.open(self.back_image)
@@ -100,13 +167,43 @@ class BG_Add_Remove(models.Model):
             filename = os.path.basename("Newimage.png")
             name, _ = filename.split(".")
             self.bg_image.save(f"bgrm_{name}.png", ContentFile(val), save=False)
-            super().save(*args, **kwargs)        
+            super().save(*args, **kwargs)   
+        
+        if self.bg_image and  not self.webp_bg_image_url:
+            print("Im here", self.bg_image)
+            webp_image = self.convert_to_webp(self.bg_image)
+            self.webp_bg_image_url = self.save_webp_image(webp_image)
+            super().save(update_fields=['webp_bg_image_url'])
+        
+    def convert_to_webp(self, image):
+        img = Image.open(image)
+        webp_image = BytesIO()
+        img.save(webp_image, 'WEBP')
+        return webp_image
+
+    def save_webp_image(self, webp_image):
+        webp_file = InMemoryUploadedFile(
+            webp_image,  # file
+            None,  # field_name
+            f'{uuid.uuid4()}_webp.webp',  # file name
+            'image/webp',  # content_type
+            webp_image.tell(),  # size
+            None  # content_type_extra
+        )
+
+        # Save the webp_file to the storage backend
+        webp_path = default_storage.save(webp_file.name, webp_file)
+
+        # Set the webp_image_url to the URL of the saved webp_file
+        self.webp_image_url = default_storage.url(webp_path)
+        return self.webp_image_url     
         
 
 class BG_Add_color(models.Model):
     image = models.URLField(null=True, blank=True)
     hex_color = models.CharField(max_length=256, null=True, blank=True)
     bg_image = models.ImageField(blank=True, upload_to='bg_images/')
+    webp_bg_image_url = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return str(self.id)
@@ -133,8 +230,36 @@ class BG_Add_color(models.Model):
         filename = os.path.basename("Newimage.png")
         name, _ = filename.split(".")
         self.bg_image.save(f"bgrm_{name}.png", ContentFile(val), save=False)
-        super().save(*args, **kwargs)  
+        super().save(*args, **kwargs)
+        if self.bg_image and not self.webp_bg_image_url:
+            print("Im here", self.bg_image)
+            webp_image = self.convert_to_webp(self.bg_image)
+            self.webp_bg_image_url = self.save_webp_image(webp_image)
+            super().save(update_fields=['webp_bg_image_url'])
+        
+    def convert_to_webp(self, image):
+        img = Image.open(image)
+        webp_image = BytesIO()
+        img.save(webp_image, 'WEBP')
+        return webp_image
 
+    def save_webp_image(self, webp_image):
+        webp_file = InMemoryUploadedFile(
+            webp_image,  # file
+            None,  # field_name
+            f'{uuid.uuid4()}_webp.webp',  # file name
+            'image/webp',  # content_type
+            webp_image.tell(),  # size
+            None  # content_type_extra
+        )
+
+        # Save the webp_file to the storage backend
+        webp_path = default_storage.save(webp_file.name, webp_file)
+
+        # Set the webp_image_url to the URL of the saved webp_file
+        self.webp_image_url = default_storage.url(webp_path)
+        return self.webp_image_url 
+    
 class ImageGallery(models.Model):
     title = models.CharField(max_length=256, null=True, blank=True)
     image = models.ImageField(blank=True, upload_to='blogs/')
