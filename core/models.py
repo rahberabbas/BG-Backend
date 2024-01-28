@@ -26,9 +26,6 @@ config = {
     "shift": shift
 }
 
-from pillow_heif import register_heif_opener
-
-register_heif_opener()
 
 # Create your models here.
 class BG_Remove(models.Model):
@@ -41,25 +38,56 @@ class BG_Remove(models.Model):
         return str(self.id)
     
     def save(self, *args, **kwargs):
+        
         pil_image = Image.open(self.image)
-        width, height = pil_image.size
-        TARGET_WIDTH = 2000
-        coefficient = width / 2000
-        new_height = height / coefficient
-        pil_image = pil_image.resize((int(TARGET_WIDTH),int(new_height)),Image.ANTIALIAS)
+
+        # Assuming 'width' and 'height' are defined somewhere in your code
+        # You may adjust the quality level as needed (0-100)
+        quality = 50
+
+        # Perform image compression
+        buffer = BytesIO()
+        pil_image.save(buffer, format="JPEG", quality=quality)
+        compressed_val = buffer.getvalue()
+
+        # Continue with remove_bg logic
         session = new_session("isnet-general-use")
-        rmbg = remove(pil_image, session=session, config=config)
+        
+        # Use the compressed image in the background removal process
+        compressed_image = Image.open(BytesIO(compressed_val))
+        rmbg = remove(compressed_image, session=session, config=config)
+        
         img = np.array(rmbg)
         buffer = BytesIO()
         output_img = Image.fromarray(img)
-        output_img = output_img.resize(size=(width, height))
         output_img.save(buffer, format="png")
         val = buffer.getvalue()
+
         filename = os.path.basename(self.image.name)
-        print("File Name",filename)
+        print("File Name", filename)
         name, _ = filename.split(".", 1)
         self.bg_image.save(f"bgrm_{name}.png", ContentFile(val), save=False)
         super().save(*args, **kwargs)
+        
+        # pil_image = Image.open(self.image)
+        # width, height = pil_image.size
+        # TARGET_WIDTH = 2000
+        # coefficient = width / 2000
+        # new_height = height / coefficient
+        # pil_image = pil_image.resize((int(TARGET_WIDTH),int(new_height)),Image.ANTIALIAS)
+        # session = new_session("isnet-general-use")
+        # rmbg = remove(pil_image, session=session, config=config)
+        # img = np.array(rmbg)
+        # buffer = BytesIO()
+        # output_img = Image.fromarray(img)
+        # output_img = output_img.resize(size=(width, height))
+        # output_img.save(buffer, format="png")
+        # val = buffer.getvalue()
+        # filename = os.path.basename(self.image.name)
+        # print("File Name",filename)
+        # name, _ = filename.split(".", 1)
+        # self.bg_image.save(f"bgrm_{name}.png", ContentFile(val), save=False)
+        # super().save(*args, **kwargs)
         if self.image and not self.webp_image_url:
             webp_image = self.convert_to_webp(self.image)
             self.webp_image_url = self.save_webp_image(webp_image)
@@ -115,6 +143,8 @@ class BG_Remove(models.Model):
         # Set the webp_image_url to the URL of the saved webp_file
         self.webp_image_url = default_storage.url(webp_path)
         return self.webp_image_url
+    
+    
 
 
 class BG_Add_Remove(models.Model):
