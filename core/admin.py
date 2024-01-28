@@ -18,18 +18,9 @@ class CustomCKEditorWidget(CKEditorWidget):
 admin.site.register(Contact)
 
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('title', 'slug', 'display_image')
+    list_display = ('title', 'slug')
     search_fields = ['title', 'slug']
-    def display_image(self, obj):
-        return mark_safe(f'<img src="{obj.image.image.url}" width="100" />')
-    display_image.short_description = 'Image'
-
-    readonly_fields = ('view_image',)
-
-    def view_image(self, obj):
-        return mark_safe(f'<img src="{obj.image.image.url}" width="200" />')
-
-    view_image.short_description = 'Image Preview'
+   
     
 admin.site.register(Category, CategoryAdmin)
 

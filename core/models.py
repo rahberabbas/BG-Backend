@@ -26,14 +26,18 @@ config = {
     "shift": shift
 }
 
+from pillow_heif import register_heif_opener
+
+register_heif_opener()
+
 # Create your models here.
 class BG_Remove(models.Model):
-    image = models.ImageField(blank=True, upload_to='images')
+    image = models.FileField(blank=True, upload_to='images/')
     bg_image = models.ImageField(blank=True, upload_to='bg_images/')
     webp_image_url = models.URLField(blank=True, null=True)
     webp_bg_image_url = models.URLField(blank=True, null=True)
 
-    def __str__(self):
+    def __str__(self):  
         return str(self.id)
     
     def save(self, *args, **kwargs):
@@ -44,7 +48,7 @@ class BG_Remove(models.Model):
         new_height = height / coefficient
         pil_image = pil_image.resize((int(TARGET_WIDTH),int(new_height)),Image.ANTIALIAS)
         session = new_session("isnet-general-use")
-        rmbg = remove(pil_image, alpha_matting=10, session=session, config=config)
+        rmbg = remove(pil_image, session=session, config=config)
         img = np.array(rmbg)
         buffer = BytesIO()
         output_img = Image.fromarray(img)
@@ -52,7 +56,8 @@ class BG_Remove(models.Model):
         output_img.save(buffer, format="png")
         val = buffer.getvalue()
         filename = os.path.basename(self.image.name)
-        name, _ = filename.split(".")
+        print("File Name",filename)
+        name, _ = filename.split(".", 1)
         self.bg_image.save(f"bgrm_{name}.png", ContentFile(val), save=False)
         super().save(*args, **kwargs)
         if self.image and not self.webp_image_url:
@@ -146,7 +151,7 @@ class BG_Add_Remove(models.Model):
             output_img.save(buffer, format="png")
             val = buffer.getvalue()
             filename = os.path.basename("Newimage.png")
-            name, _ = filename.split(".")
+            name, _ = filename.split(".", 1)
             self.bg_image.save(f"bgrm_{name}.png", ContentFile(val), save=False)
             super().save(*args, **kwargs)       
             # if not self.webp_bg_image_url:
@@ -165,7 +170,7 @@ class BG_Add_Remove(models.Model):
             output_img.save(buffer, format="png")
             val = buffer.getvalue()
             filename = os.path.basename("Newimage.png")
-            name, _ = filename.split(".")
+            name, _ = filename.split(".", 1)
             self.bg_image.save(f"bgrm_{name}.png", ContentFile(val), save=False)
             super().save(*args, **kwargs)   
         
@@ -228,7 +233,7 @@ class BG_Add_color(models.Model):
         output_img.save(buffer, format="png")
         val = buffer.getvalue()
         filename = os.path.basename("Newimage.png")
-        name, _ = filename.split(".")
+        name, _ = filename.split(".", 1)
         self.bg_image.save(f"bgrm_{name}.png", ContentFile(val), save=False)
         super().save(*args, **kwargs)
         if self.bg_image and not self.webp_bg_image_url:
@@ -263,18 +268,30 @@ class BG_Add_color(models.Model):
 class ImageGallery(models.Model):
     title = models.CharField(max_length=256, null=True, blank=True)
     image = models.ImageField(blank=True, upload_to='blogs/')
+    webp_image = models.ImageField(upload_to='webp_images/', blank=True, null=True)
     alt_text = models.CharField(max_length=256, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     
     def __str__(self):
-        return self.title    
+        return self.title  
+    
+    def save(self, *args, **kwargs):
+        # Convert the original image to WebP
+        if self.image:
+            img = Image.open(self.image)
+            output_io = BytesIO()
+            img.save(output_io, 'WEBP')
+            output_io.seek(0)
+            self.webp_image = InMemoryUploadedFile(output_io, 'ImageField', f'{self.image.name.split(".")[0]}.webp', 'image/webp', output_io.tell(), None)
+
+        super().save(*args, **kwargs)
         
 class Category(models.Model):
     title = models.CharField(max_length=256, null=True, blank=True)
     slug = models.SlugField(null=True, blank=True)
     meta_title = models.CharField(max_length=256, null=True, blank=True)
     meta_description = models.CharField(max_length=256, null=True, blank=True)
-    image = models.ForeignKey(ImageGallery, on_delete=models.CASCADE, limit_choices_to={'image__isnull': False})
+    description2 = RichTextUploadingField(null=True, blank=True)
     
     def save(self, *args, **kwargs):
         
@@ -321,6 +338,7 @@ class Blog(models.Model):
     meta_description = models.CharField(max_length=256, null=True, blank=True)
     image = models.ForeignKey(ImageGallery, on_delete=models.CASCADE, limit_choices_to={'image__isnull': False})
     description = RichTextUploadingField(null=True, blank=True)
+    home_page = models.BooleanField(default=False)
     date = models.DateTimeField(auto_now_add=True)
     
     
