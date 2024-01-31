@@ -47,7 +47,7 @@ class BG_Remove(models.Model):
 
         # Perform image compression
         buffer = BytesIO()
-        pil_image.save(buffer, format="JPEG", quality=quality)
+        pil_image.save(buffer, format="PNG", quality=quality)
         compressed_val = buffer.getvalue()
 
         # Continue with remove_bg logic
